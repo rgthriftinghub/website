@@ -1,0 +1,232 @@
+@import "tailwindcss";
+
+/*
+  RG Thrifting Hub design system.
+
+  Colours are taken from the logo: a near-black badge, an antique gold accent
+  sampled at #C39A51, and warm off-white. Everything else is a warm neutral
+  ramp so the palette stays in one temperature family — no cool greys, which
+  would fight the gold.
+*/
+@theme {
+  /* Brand */
+  --color-ink: #0e0d0c;
+  --color-ink-soft: #1c1a18;
+  --color-ink-muted: #4a453f;
+
+  --color-gold: #c39a51;
+  --color-gold-deep: #a37f3c;
+  --color-gold-soft: #e3cfa6;
+  --color-gold-wash: #f6efe1;
+
+  /* Warm neutral ramp. `surface` is pure white and is used for the header and
+     cards: the supplied logo artwork has an opaque white background, so it only
+     sits cleanly on white. */
+  --color-surface: #ffffff;
+  --color-paper: #faf8f4;
+  --color-paper-alt: #f3efe8;
+  --color-line: #e4ded4;
+  --color-line-strong: #d2c9bb;
+  --color-stone: #8c847a;
+
+  /* Semantic */
+  --color-success: #3f6b4f;
+  --color-danger: #9a3324;
+
+  /* Populated by next/font in app/layout.tsx, with system fallbacks. */
+  --font-display: var(--font-playfair), ui-serif, Georgia, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Restrained radii — a fashion storefront should not look like a dashboard. */
+  --radius-none: 0px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+
+  /* Clothing photography is portrait; fixing the ratio prevents layout shift. */
+  --aspect-garment: 3 / 4;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    line-height: 1.12;
+    margin: 0;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* A single visible focus treatment for keyboard users across the whole app. */
+  :focus-visible {
+    outline: 2px solid var(--color-gold-deep);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-gold-soft);
+    color: var(--color-ink);
+  }
+}
+
+@layer components {
+  /* Small caps label used above headings throughout the storefront. */
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-gold-deep);
+  }
+
+  .rule-gold {
+    display: block;
+    width: 2.5rem;
+    height: 2px;
+    background-color: var(--color-gold);
+  }
+
+  /* Underline that grows on hover — the one motion used in navigation. */
+  .nav-link {
+    position: relative;
+  }
+  .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -4px;
+    height: 1px;
+    width: 100%;
+    background-color: var(--color-gold);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 180ms ease;
+  }
+  .nav-link:hover::after,
+  .nav-link[data-active="true"]::after {
+    transform: scaleX(1);
+  }
+
+  /* Product imagery zooms very slightly on hover; nothing else moves. */
+  .media-zoom {
+    transition: transform 480ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  .group:hover .media-zoom {
+    transform: scale(1.035);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Respect a reduced-motion preference: transitions are decorative here. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ------------------------------------------------------------------ marquee */
+/* The track carries its children twice, so sliding exactly -50% lands the second
+   copy where the first began — a seamless loop with no JS and no reflow. Only
+   `transform` animates, so it stays on the compositor. */
+@keyframes marquee-slide {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.marquee-track {
+  animation: marquee-slide linear infinite;
+  will-change: transform;
+}
+
+.marquee-track--reverse {
+  animation-direction: reverse;
+}
+
+/* Pause when a pointer rests on the band, and whenever focus lands inside it, so
+   a keyboard user can reach a link that would otherwise slide away. */
+.marquee:hover .marquee-track,
+.marquee:focus-within .marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+    /* Without the animation the doubled track would overflow silently; let it
+       scroll by hand instead. */
+    transform: none;
+  }
+  .marquee {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .marquee::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Hero carousel track: snap-scrolled horizontally, scrollbar hidden. */
+.hero-track {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+}
+.hero-track::-webkit-scrollbar {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-track {
+    scroll-behavior: auto;
+  }
+}
