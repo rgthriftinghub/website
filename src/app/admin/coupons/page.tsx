@@ -11,7 +11,7 @@ export default function CouponsPage() {
   const [value,setValue]=useState(""); const [minimum,setMinimum]=useState("0"); const [max,setMax]=useState("");
   const [error,setError]=useState(""); const [busy,setBusy]=useState(false);
   async function refresh(){setRows(await listCoupons());}
-  useEffect(()=>{void refresh().catch(()=>setError("Could not load coupons."));},[]);
+  useEffect(()=>{void listCoupons().then(setRows).catch(()=>setError("Could not load coupons."));},[]);
   async function submit(event:React.FormEvent){event.preventDefault();setBusy(true);setError("");try{await createCoupon({code,discount_type:discountType,discount_value:value,minimum_order:minimum,max_redemptions:max?Number(max):null,starts_at:null,ends_at:null,is_active:true});setCode("");setValue("");await refresh();}catch(cause){setError(cause instanceof Error?cause.message:"Could not save coupon.");}finally{setBusy(false);}}
   async function remove(id:string){try{await deleteCoupon(id);await refresh();}catch{setError("Could not delete coupon.");}}
   return <AdminGate><main className="mx-auto max-w-6xl space-y-7 px-5 py-10"><header><p className="text-xs uppercase tracking-widest text-stone">Marketing</p><h1 className="mt-2 font-display text-3xl">Coupons & promo codes</h1></header>

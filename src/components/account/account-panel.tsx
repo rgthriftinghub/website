@@ -8,6 +8,7 @@ import { Suspense, useState } from "react";
 import { errorMessage, useStore } from "@/components/providers/store-provider";
 import { Button } from "@/components/ui/button";
 import { login, register } from "@/lib/api/catalog";
+import { ApiClientError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 type Mode = "login" | "register";
@@ -98,7 +99,19 @@ function AccountPanelInner() {
         router.push(nextParam);
       }
     } catch (caught) {
-      setError(errorMessage(caught, "Something went wrong. Please try again."));
+      if (mode === "login") {
+        if (caught instanceof ApiClientError && caught.status === 401) {
+          setError("Incorrect email or password. Please try again.");
+        } else if (caught instanceof ApiClientError && caught.status >= 500) {
+          setError("The sign-in service is temporarily unavailable. Please try again shortly.");
+        } else if (caught instanceof TypeError) {
+          setError("Could not reach the sign-in service. Check your internet connection and try again.");
+        } else {
+          setError(errorMessage(caught, "Unable to sign in. Please try again."));
+        }
+      } else {
+        setError(errorMessage(caught, "Unable to create your account. Please try again."));
+      }
     } finally {
       setBusy(false);
     }

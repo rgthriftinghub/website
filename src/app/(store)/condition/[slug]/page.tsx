@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { Pagination } from "@/components/catalog/pagination";
 import { ProductGrid } from "@/components/catalog/product-card";
@@ -38,7 +39,7 @@ export default async function ConditionCollectionPage({ params, searchParams }: 
   );
   const base = `/condition/${slug}`;
   return <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-    <nav aria-label="Breadcrumb" className="text-xs text-ink-muted"><a href="/condition" className="underline underline-offset-4">Shop by Condition</a><span className="mx-2">/</span><span>{conditionLabel(grade)}</span></nav>
+    <nav aria-label="Breadcrumb" className="text-xs text-ink-muted"><Link href="/condition" className="underline underline-offset-4">Shop by Condition</Link><span className="mx-2">/</span><span>{conditionLabel(grade)}</span></nav>
     <header className="mt-5 border-b border-line pb-7"><p className="eyebrow">Condition collection</p><h1 className="mt-2 font-display text-4xl">{conditionLabel(grade)}</h1><p className="mt-3 max-w-2xl text-sm text-ink-muted">Hand-checked pre-loved pieces with condition described clearly on every product.</p></header>
     <section className="mt-7">
       <div className="mb-7 flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4"><p className="text-xs text-ink-muted">{results.total ? `${results.total} pieces in this grade` : "No products in this grade yet"}</p><div className="flex items-center gap-3"><SortSelect /><ButtonLink href={`/shop?condition=${grade}`} variant="secondary" size="sm">All filters</ButtonLink></div></div>

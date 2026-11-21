@@ -5,10 +5,8 @@
  * database; it only consumes the FastAPI REST API.
  */
 
-// Browser-facing base URL. Inlined into the client bundle at build time, so it
-// must be the address a visitor's browser can reach. No production URL is
-// hardcoded; the fallback is a local development default.
-const PUBLIC_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api/v1";
+// Browser-facing base URL is required and inlined during `next build`.
+const PUBLIC_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL!;
 
 // Server-side base URL. Server rendering happens inside the frontend container,
 // where "localhost" is that container rather than the API, so requests must go

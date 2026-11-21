@@ -96,7 +96,7 @@ export function Footer({ categories }: { categories: Category[] }) {
               </li>
               <li className="flex gap-2.5">
                 <Phone className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden />
-                +92 300 000 0000
+                0300 164 5089
               </li>
               <li className="flex gap-2.5">
                 <Mail className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden />
