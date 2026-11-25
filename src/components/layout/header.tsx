@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, Menu, ShoppingBag, User, X } from "lucide-react";
+import { Heart, Menu, Search, ShoppingBag, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { LogoLink } from "@/components/brand/logo";
@@ -58,6 +58,7 @@ function CountBadge({ value }: { value: number }) {
 export function Header({ categories }: { categories: Category[] }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { cartCount, wishlistCount } = useStore();
   const nav = buildNav(categories);
 
@@ -76,43 +77,52 @@ export function Header({ categories }: { categories: Category[] }) {
   // white-backed, so it only sits cleanly on a white surface.
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-surface">
-      <p className="bg-ink px-4 py-2 text-center text-[11px] font-medium tracking-[0.1em] text-gold-soft">
+      <p className="hidden bg-ink px-4 py-2 text-center text-[11px] font-medium tracking-[0.1em] text-gold-soft sm:block">
         HAND-PICKED PIECES · NEW DROPS EVERY WEEK
       </p>
 
-      <div className="mx-auto flex h-20 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:h-24 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-3 sm:h-20 sm:gap-4 sm:px-6 2xl:h-24 2xl:px-8">
         {/* Mobile: hamburger, logo, cart. Desktop: full navigation. */}
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
           aria-expanded={mobileOpen}
-          className="-ml-2 grid size-10 place-items-center text-ink lg:hidden"
+          className="order-2 ml-auto grid size-10 shrink-0 place-items-center text-ink sm:order-none sm:-ml-2 2xl:hidden"
         >
           <Menu className="size-5" aria-hidden />
         </button>
 
-        <LogoLink height={60} priority className="shrink-0 lg:hidden" />
-        <LogoLink height={76} priority className="hidden shrink-0 lg:inline-flex" />
+        <LogoLink height={52} priority className="order-1 shrink-0 sm:order-none 2xl:hidden" />
+        <LogoLink height={76} priority className="hidden shrink-0 2xl:inline-flex" />
 
-        <nav aria-label="Main" className="ml-6 hidden items-center gap-7 lg:flex">
+        <nav aria-label="Main" className="ml-4 hidden min-w-0 flex-1 items-center gap-5 overflow-x-auto 2xl:flex">
           {nav.map((item) => (
             item.children ? (
               <div key={item.href} className="group relative">
-                <Link href={item.href} aria-expanded="false" className="nav-link text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted hover:text-ink">{item.label}</Link>
+                <Link href={item.href} aria-expanded="false" className="nav-link whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted hover:text-ink">{item.label}</Link>
                 <div className="invisible absolute left-0 top-full z-50 min-w-52 translate-y-2 border border-line bg-surface p-2 opacity-0 shadow-lg transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
                   {item.children.map((child) => <Link key={child.href} href={child.href} className="block px-3 py-2.5 text-xs text-ink-muted hover:bg-paper-alt hover:text-ink">{child.label}</Link>)}
                 </div>
               </div>
-            ) : <Link key={item.href} href={item.href} data-active={pathname === item.href.split("?")[0] ? "true" : undefined} className="nav-link text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted hover:text-ink">{item.label}</Link>
+            ) : <Link key={item.href} href={item.href} data-active={pathname === item.href.split("?")[0] ? "true" : undefined} className="nav-link whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted hover:text-ink">{item.label}</Link>
           ))}
         </nav>
 
-        <div className="ml-auto hidden max-w-xs flex-1 lg:block">
+        <div className="hidden w-56 shrink-0 2xl:block">
           <SearchField />
         </div>
 
-        <div className="ml-auto flex items-center gap-1 lg:ml-3">
+        <div className="order-3 ml-0 flex shrink-0 items-center gap-0 sm:order-none sm:ml-auto sm:gap-1 2xl:ml-3">
+          <button
+            type="button"
+            onClick={() => setMobileSearchOpen((open) => !open)}
+            aria-label={mobileSearchOpen ? "Close search" : "Open search"}
+            aria-expanded={mobileSearchOpen}
+            className="grid size-10 place-items-center text-ink-muted transition-colors hover:text-ink sm:hidden"
+          >
+            <Search className="size-5" aria-hidden />
+          </button>
           <Link
             href="/account"
             aria-label="Account"
@@ -139,9 +149,15 @@ export function Header({ categories }: { categories: Category[] }) {
         </div>
       </div>
 
-      {/* Search stays visible on mobile, where it is the primary way to browse. */}
-      <div className="border-t border-line bg-paper px-4 py-2.5 lg:hidden">
-        <SearchField />
+      {/* Phones use a compact search icon; tablets retain the existing search row. */}
+      <div className={cn(
+        "border-t border-line bg-paper px-3 py-2.5 sm:px-4 2xl:hidden",
+        mobileSearchOpen ? "block sm:hidden" : "hidden sm:block"
+      )}>
+        <SearchField
+          autoFocus={mobileSearchOpen}
+          onSubmitted={() => setMobileSearchOpen(false)}
+        />
       </div>
 
       {mobileOpen ? (
@@ -169,7 +185,7 @@ function MobileDrawer({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 lg:hidden">
+    <div className="fixed inset-0 z-50 2xl:hidden">
       <button
         type="button"
         aria-label="Close menu"

@@ -230,3 +230,12 @@
     scroll-behavior: auto;
   }
 }
+
+/* Keep phone sized viewports usable without browser zooming focused fields. */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
