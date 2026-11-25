@@ -104,7 +104,9 @@ export function Footer({ categories }: { categories: Category[] }) {
               </li>
               <li className="flex gap-2.5">
                 <AtSign className="mt-0.5 size-4 shrink-0 text-gold" aria-hidden />
-                @rgthriftinghub
+                <a href="https://www.instagram.com/rg_thriftinghub?gwpx=aHZtcmtlbXB5dXZj" target="_blank" rel="noreferrer">
+                  @rgthriftinghub
+                </a>
               </li>
             </ul>
           </div>
