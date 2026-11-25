@@ -57,8 +57,9 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [photo, setPhoto] = useState<string>(PHOTOS[0][0]);
-  const [size, setSize] = useState("M");
-  const [quantity, setQuantity] = useState("1");
+  type SizeRow = { size: string; quantity: string; existing?: ProductAdmin["variants"][number] };
+  const [sizeRows, setSizeRows] = useState<SizeRow[]>([{ size: "M", quantity: "1" }]);
+  const [newSize, setNewSize] = useState("");
   const [productType, setProductType] = useState("SHIRT");
   const [condition, setCondition] = useState<ProductCondition>("GOOD");
   const [itemCode, setItemCode] = useState("");
@@ -73,16 +74,32 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
       setProduct(item); setName(item.name); setPrice(item.regular_price);
       const primary = item.images.find((image) => image.is_primary) ?? item.images[0];
       if (primary) setPhoto(primary.image_url.split("/").pop() ?? PHOTOS[0][0]);
-      setSize(item.variants[0]?.size ?? "M"); setQuantity(String(item.variants[0]?.quantity ?? 1));
+      setSizeRows(item.variants.length
+        ? item.variants.map((variant) => ({ size: variant.size ?? "", quantity: String(variant.quantity), existing: variant }))
+        : [{ size: "", quantity: "1" }]);
       setCondition(item.condition);
       setItemCode(item.item_code);
       setSinglePiece(item.single_piece);
     }).catch(() => setError("Could not load this product."));
   }, [productId]);
 
+  function addSize() {
+    const value = newSize.trim();
+    if (!value) return;
+    if (sizeRows.some((row) => row.size.trim().toLowerCase() === value.toLowerCase())) {
+      setError(`Size ${value} is already on this product.`);
+      return;
+    }
+    setError("");
+    if (singlePiece) setSinglePiece(false);
+    setSizeRows((rows) => [...rows, { size: value, quantity: "1" }]);
+    setNewSize("");
+  }
+
   async function save(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
+      if (!product && !sizeRows.some((row) => row.size.trim())) throw new Error("Add at least one size before saving.");
       if (product) {
         await updateAdminProduct(product.id, {
           name, regular_price: price,
@@ -90,11 +107,12 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
           item_code: itemCode,
           single_piece: singlePiece,
           images: [{ image_url: imageUrl(photo), alt_text: name, sort_order: 0, is_primary: true }],
-          variants: product.variants.map((variant, index) => ({
-            sku: variant.sku, size: index === 0 ? size : variant.size,
-            waist: variant.waist, color: variant.color, variant_name: variant.variant_name,
-            price_override: variant.price_override, sale_price_override: variant.sale_price_override,
-            is_active: variant.is_active, quantity: index === 0 ? Number(quantity) : variant.quantity,
+          variants: sizeRows.filter((row) => row.size.trim() || row.existing?.waist || row.existing?.color).map((row) => ({
+            sku: row.existing?.sku ?? `RG-${product.id.slice(0, 8)}-${crypto.randomUUID().replace(/-/g, "").slice(0, 10)}`,
+            size: row.size.trim() || null,
+            waist: row.existing?.waist ?? null, color: row.existing?.color ?? null, variant_name: row.existing?.variant_name ?? null,
+            price_override: row.existing?.price_override ?? null, sale_price_override: row.existing?.sale_price_override ?? null,
+            is_active: row.existing?.is_active ?? true, quantity: Number(row.quantity),
             low_stock_threshold: 3,
           })),
         });
@@ -111,10 +129,12 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
           regular_price: price, sale_price: null, condition, single_piece: singlePiece, gender: "WOMEN",
           product_type: productType, color: null, fabric: null, is_featured: false, is_new_arrival: true,
           images: [{ image_url: imageUrl(photo), alt_text: name, is_primary: true }],
-          variants: [{ sku: `RG-W-${code}-M`, size, quantity: Number(quantity) }],
+          variants: sizeRows.filter((row) => row.size.trim()).map((row, index) => ({
+            sku: `RG-W-${code}-${index + 1}`, size: row.size.trim(), quantity: Number(row.quantity),
+          })),
         });
         setNotice(`Product added. Item code: ${created.item_code}`);
-        setName(""); setPrice(""); setQuantity("1");
+        setName(""); setPrice(""); setSizeRows([{ size: "M", quantity: "1" }]);
       }
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save product."); }
     finally { setBusy(false); }
@@ -163,8 +183,15 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
       {product ? <label className="block text-sm">Item code<input required value={itemCode} onChange={(e) => setItemCode(e.target.value)} pattern="[A-Za-z0-9-]+" maxLength={32} className="mt-1 block h-11 w-full border border-line px-3 font-mono" /></label> : <p className="text-xs text-ink-muted">A unique item code will be generated automatically.</p>}
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={singlePiece} onChange={(e) => setSinglePiece(e.target.checked)} /> Single-piece item (maximum one unit in stock)</label>
       {!product ? <label className="block text-sm">Product type<select value={productType} onChange={(e) => setProductType(e.target.value)} className="mt-1 block h-11 w-full border border-line bg-white px-3"><option value="SHIRT">Shirt / blouse</option><option value="SWEATER">Sweater / knitwear</option><option value="JACKET">Jacket / blazer</option><option value="DRESS">Dress</option></select></label> : null}
-      <div className="grid gap-4 sm:grid-cols-2"><label className="block text-sm">Size<input value={size} onChange={(e) => setSize(e.target.value)} className="mt-1 block h-11 w-full border border-line px-3" /></label>
-        <label className="block text-sm">Stock quantity<input type="number" min="0" value={quantity} onChange={(e) => setQuantity(e.target.value)} className="mt-1 block h-11 w-full border border-line px-3" /></label></div>
+      <section className="space-y-3 border border-line p-4">
+        <div><h2 className="text-sm font-medium">Available sizes and stock</h2><p className="mt-1 text-xs text-ink-muted">Add each size once and set its available quantity.</p></div>
+        <div className="space-y-2">{sizeRows.map((row, index) => <div key={row.existing?.id ?? `new-${index}`} className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <label className="block text-sm">Size<input value={row.size} placeholder={row.existing?.waist ? `Waist ${row.existing.waist}` : "e.g. XS, M, 32"} onChange={(event) => setSizeRows((rows) => rows.map((item, i) => i === index ? { ...item, size: event.target.value } : item))} className="mt-1 block h-11 w-full border border-line px-3" /></label>
+          <label className="block text-sm">Stock quantity<input type="number" min="0" value={row.quantity} onChange={(event) => setSizeRows((rows) => rows.map((item, i) => i === index ? { ...item, quantity: event.target.value } : item))} className="mt-1 block h-11 w-full border border-line px-3" /></label>
+          <button type="button" className="h-11 px-3 text-sm text-danger underline" onClick={() => setSizeRows((rows) => rows.filter((_, i) => i !== index))}>Remove</button>
+        </div>)}</div>
+        <div className="flex flex-wrap gap-2"><input aria-label="New size" value={newSize} onChange={(event) => setNewSize(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addSize(); } }} placeholder="Add a size" className="h-11 min-w-0 flex-1 border border-line px-3" /><Button type="button" variant="secondary" onClick={addSize}>Add Size</Button></div>
+      </section>
       <fieldset><legend className="mb-3 text-sm font-medium">Choose product image</legend><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{PHOTOS.map(([file, label]) => <label key={file} className={`cursor-pointer border p-2 ${photo === file ? "border-gold-deep" : "border-line"}`}><input className="sr-only" type="radio" name="photo" checked={photo === file} onChange={() => setPhoto(file)} /><div className="relative aspect-[4/5] bg-paper-alt"><Image src={imageUrl(file)} alt={label} fill sizes="25vw" className="object-contain" /></div><span className="mt-2 block text-xs">{label}</span></label>)}</div></fieldset>
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}{notice ? <p role="status" className="text-sm text-green-800">{notice}</p> : null}
       <Button disabled={busy}>{busy ? "Saving…" : product ? "Save product" : "Add product"}</Button>
