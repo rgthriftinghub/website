@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { MediaImage as Image } from "@/components/ui/media-image";
 import type { ProductImage } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 

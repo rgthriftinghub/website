@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { MediaImage as Image } from "@/components/ui/media-image";
 import Link from "next/link";
 import { ArrowRight, Recycle, ShieldCheck, Sparkles } from "lucide-react";
 

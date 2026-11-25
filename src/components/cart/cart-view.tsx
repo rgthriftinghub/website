@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import Image from "next/image";
+import { MediaImage as Image } from "@/components/ui/media-image";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Loader2, ShoppingBag, Trash2 } from "lucide-react";
 import { useState } from "react";

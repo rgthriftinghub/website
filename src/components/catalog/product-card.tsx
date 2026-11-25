@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Eye } from "lucide-react";
 
 import { WishlistButton } from "@/components/catalog/wishlist-button";
 import { useStore } from "@/components/providers/store-provider";
 import { Badge } from "@/components/ui/badge";
+import { MediaImage as Image } from "@/components/ui/media-image";
 import { SaleBadge, SaleCountdown } from "@/components/catalog/sale-badge";
 import type { ProductListItem } from "@/lib/api/types";
 import { conditionLabel, formatPrice } from "@/lib/format";

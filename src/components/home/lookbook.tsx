@@ -4,7 +4,7 @@
  * Kept apart from `page.tsx` so the page stays a readable list of sections.
  */
 
-import Image from "next/image";
+import { MediaImage as Image } from "@/components/ui/media-image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 

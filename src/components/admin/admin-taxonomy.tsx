@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { MediaImage as Image } from "@/components/ui/media-image";
 import { listAdminBrands, listAdminCategories } from "@/lib/api/catalog";
 import type { Brand, CategoryDetail } from "@/lib/api/types";
 
