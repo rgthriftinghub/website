@@ -1,5 +1,6 @@
 """Admin CRUD for products, categories, subcategories, and brands."""
 
+from datetime import timedelta
 from decimal import Decimal
 
 from tests import factories
@@ -238,6 +239,92 @@ def test_admin_list_can_exclude_deactivated_products(admin_client, db):
     body = admin_client.get("/api/v1/admin/products?include_inactive=false").json()
 
     assert body["total"] == 1
+
+
+def test_permanent_product_delete_removes_rows_and_logs_stock_snapshot(admin_client, admin_user, db):
+    from app.models.admin import AdminActivityLog
+    from app.core.timezones import utc_now
+    from app.models.enums import DiscountType, SaleTargetType, SaleType
+    from app.models.product import Product
+    from app.models.sale import Sale, SaleTarget
+    from app.models.variant import ProductVariant
+
+    category = factories.make_category(db)
+    product = factories.make_product(db, category=category, variants=(("M", None, 4), ("L", None, 2)))
+    product_id = product.id
+    item_code = product.item_code
+    variants = list(product.variants)
+    now = utc_now()
+    sale = Sale(
+        name="Delete target campaign",
+        slug="delete-target-campaign",
+        sale_type=SaleType.STANDARD,
+        discount_type=DiscountType.PERCENTAGE,
+        discount_value=Decimal("10"),
+        starts_at=now - timedelta(hours=1),
+        ends_at=now + timedelta(days=1),
+        is_active=True,
+    )
+    db.add(sale)
+    db.flush()
+    db.add(SaleTarget(sale_id=sale.id, target_type=SaleTargetType.PRODUCT, product_id=product.id))
+    db.commit()
+
+    response = admin_client.delete(f"/api/v1/admin/products/{product_id}/permanent")
+
+    assert response.status_code == 200, response.text
+    assert db.get(Product, product_id) is None
+    assert all(db.get(ProductVariant, variant.id) is None for variant in variants)
+    assert db.query(SaleTarget).filter(SaleTarget.sale_id == sale.id).count() == 0
+    log = db.query(AdminActivityLog).filter_by(action="PRODUCT_PERMANENTLY_DELETED").one()
+    assert log.user_id == admin_user.id
+    assert log.metadata_json["item_code"] == item_code
+    assert {row["sku"] for row in log.metadata_json["variants"]} == {variant.sku for variant in variants}
+    assert {row["size"] for row in log.metadata_json["variants"]} == {"M", "L"}
+    assert {row["remaining_stock"] for row in log.metadata_json["variants"]} == {2, 4}
+    # Campaigns with zero targets remain readable in the admin sales pages.
+    detail = admin_client.get(f"/api/v1/admin/sales/{sale.id}")
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["targets"] == []
+    listing = admin_client.get("/api/v1/admin/sales")
+    assert listing.status_code == 200, listing.text
+    assert any(row["id"] == str(sale.id) and row["targets"] == [] for row in listing.json()["items"])
+
+
+def test_permanent_product_delete_is_blocked_for_products_with_orders(
+    admin_client, customer_user, db
+):
+    from app.models.product import Product
+    from tests.factories import make_order
+
+    category = factories.make_category(db)
+    product = factories.make_product(db, category=category, variants=(("M", None, 3),))
+    product_id = product.id
+    make_order(db, customer_user, variant=product.variants[0])
+
+    response = admin_client.delete(f"/api/v1/admin/products/{product_id}/permanent")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "This product has past orders. Archive it instead."
+    assert db.get(Product, product_id) is not None
+
+
+def test_permanent_product_delete_is_owner_only_even_with_staff_delete_grant(
+    staff_client, staff_credentials, admin_user, db
+):
+    from app.models.enums import Permission
+    from app.models.product import Product
+    from app.services.permissions import grant
+
+    category = factories.make_category(db)
+    product = factories.make_product(db, category=category)
+    product_id = product.id
+    grant(db, staff_credentials[0].id, [Permission.PRODUCT_DELETE], granted_by=admin_user)
+
+    response = staff_client.delete(f"/api/v1/admin/products/{product_id}/permanent")
+
+    assert response.status_code == 403
+    assert db.get(Product, product_id) is not None
 
 
 # ------------------------------------------------------------------------- categories

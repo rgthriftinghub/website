@@ -170,6 +170,7 @@ export interface ProductAdmin extends ProductDetail {
   brand_id: string | null;
   category_id: string;
   subcategory_id: string | null;
+  has_past_orders: boolean;
 }
 
 export interface FilterOptions {

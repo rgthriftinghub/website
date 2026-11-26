@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ProductGallery } from "@/components/catalog/product-gallery";
 import { ProductReviews } from "@/components/catalog/product-reviews";
 import { VariantPicker } from "@/components/catalog/variant-picker";
+import { ProductDescription } from "@/components/product-description";
 import { getProduct } from "@/lib/api/catalog";
 import { conditionLabel, formatPrice } from "@/lib/format";
 
@@ -23,10 +24,10 @@ export default async function ProductPage({ params }: Props) {
     <div className="mt-6 grid gap-8 lg:grid-cols-2 lg:gap-12">
       <ProductGallery images={product.images} productName={product.name} discountPercent={product.discount_percent} isNewArrival={product.is_new_arrival} />
       <section className="lg:py-4"><p className="eyebrow">{product.brand?.name ?? product.category.name}</p><h1 className="mt-3 font-display text-3xl">{product.name}</h1>
-        {product.short_description ? <p className="mt-3 text-sm leading-6 text-ink-muted">{product.short_description}</p> : null}
+        {product.short_description ? <ProductDescription text={product.short_description} className="mt-3 text-sm leading-6 text-ink-muted" /> : null}
         <p className="mt-3 text-sm text-ink-muted">{product.review_count ? `★ ${product.average_rating.toFixed(1)} · ${product.review_count} reviews` : "No ratings yet"}</p>
         <p className="mt-5 text-lg font-semibold">{formatPrice(product.effective_price)}</p>
-        {product.description && product.description !== product.short_description ? <p className="mt-5 whitespace-pre-line text-sm leading-7 text-ink-muted">{product.description}</p> : null}
+        {product.description && product.description !== product.short_description ? <ProductDescription text={product.description} className="mt-5 text-sm leading-7 text-ink-muted" /> : null}
         <p className="mt-4 border-l-2 border-gold pl-3 text-xs leading-5 text-stone">
           {product.brand?.name
             ? `This pre-owned item is independently resold. RG Thrifting Hub is not affiliated with or endorsed by ${product.brand.name} or its brand owner.`

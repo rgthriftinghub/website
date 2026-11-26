@@ -59,9 +59,9 @@ class Product(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     slug: Mapped[str] = mapped_column(String(220), nullable=False, unique=True, index=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    short_description: Mapped[str | None] = mapped_column(String(400), nullable=True)
+    short_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     seo_title: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    meta_description: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    meta_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     sku: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     item_code: Mapped[str] = mapped_column(
         String(32), nullable=False, unique=True, index=True,

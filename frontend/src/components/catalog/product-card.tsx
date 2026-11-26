@@ -78,6 +78,11 @@ export function ProductCard({
             {product.brand?.name ?? product.category.name}
           </p>
           <h3 className="mt-1.5 font-display text-[15px] leading-snug text-ink">{product.name}</h3>
+          {product.short_description ? (
+            <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-ink-muted">
+              {product.short_description}
+            </p>
+          ) : null}
           {product.review_count > 0 ? (
             <p className="mt-1 text-xs text-ink-muted" aria-label={`${product.average_rating} out of 5 stars, ${product.review_count} reviews`}>
               <span className="text-gold-deep">★</span> {product.average_rating.toFixed(1)} ({product.review_count})

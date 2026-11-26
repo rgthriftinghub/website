@@ -194,10 +194,10 @@ class ProductVariantRead(BaseModel):
 class ProductBase(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     slug: str = Field(min_length=1, max_length=220, pattern=SLUG_PATTERN)
-    description: str | None = Field(default=None, max_length=300)
-    short_description: str | None = Field(default=None, max_length=400)
+    description: str | None = Field(default=None, max_length=50000)
+    short_description: str | None = Field(default=None, max_length=50000)
     seo_title: str | None = Field(default=None, max_length=200)
-    meta_description: str | None = Field(default=None, max_length=320)
+    meta_description: str | None = Field(default=None, max_length=50000)
     sku: str = Field(min_length=1, max_length=64)
     barcode: str | None = Field(default=None, max_length=64)
     brand_id: uuid.UUID | None = None
@@ -220,7 +220,7 @@ class ProductBase(BaseModel):
     def normalize_condition(cls, value):
         return parse_product_condition(value)
 
-    @field_validator("description", mode="before")
+    @field_validator("description", "short_description", "meta_description", mode="before")
     @classmethod
     def sanitize_description(cls, value):
         if value is None:
@@ -249,10 +249,10 @@ class ProductUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     slug: str | None = Field(default=None, min_length=1, max_length=220, pattern=SLUG_PATTERN)
-    description: str | None = Field(default=None, max_length=300)
-    short_description: str | None = Field(default=None, max_length=400)
+    description: str | None = Field(default=None, max_length=50000)
+    short_description: str | None = Field(default=None, max_length=50000)
     seo_title: str | None = Field(default=None, max_length=200)
-    meta_description: str | None = Field(default=None, max_length=320)
+    meta_description: str | None = Field(default=None, max_length=50000)
     sku: str | None = Field(default=None, min_length=1, max_length=64)
     item_code: str | None = Field(default=None, min_length=3, max_length=32, pattern=r"^[A-Za-z0-9-]+$")
     single_piece: bool | None = None
@@ -278,7 +278,7 @@ class ProductUpdate(BaseModel):
     def normalize_condition(cls, value):
         return None if value is None else parse_product_condition(value)
 
-    @field_validator("description", mode="before")
+    @field_validator("description", "short_description", "meta_description", mode="before")
     @classmethod
     def sanitize_description(cls, value):
         if value is None:
@@ -341,6 +341,7 @@ class ProductAdminRead(ProductDetail):
     brand_id: uuid.UUID | None
     category_id: uuid.UUID
     subcategory_id: uuid.UUID | None
+    has_past_orders: bool = False
 
 
 class SalePricingRead(BaseModel):

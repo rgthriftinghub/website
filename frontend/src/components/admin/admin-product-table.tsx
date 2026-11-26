@@ -2,15 +2,16 @@
 
 import { MediaImage as Image } from "@/components/ui/media-image";
 import Link from "next/link";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { useAdminUser } from "@/components/admin/admin-gate";
 import { ButtonLink } from "@/components/ui/button";
-import { deleteAdminProduct, listAdminProducts } from "@/lib/api/catalog";
+import { archiveAdminProduct, listAdminProducts } from "@/lib/api/catalog";
 import type { Page, ProductAdmin } from "@/lib/api/types";
 import { conditionLabel, formatPrice } from "@/lib/format";
+import { AdminPermanentDeleteDialog } from "@/components/admin/admin-permanent-delete-dialog";
 
 const PAGE_SIZE = 20;
 
@@ -23,6 +24,7 @@ export function AdminProductTable() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [showInactive, setShowInactive] = useState(false);
+  const [notice, setNotice] = useState("");
   const user = useAdminUser();
 
   useEffect(() => {
@@ -45,11 +47,12 @@ export function AdminProductTable() {
   }, [page, applied, reloadKey, showInactive]);
 
   async function removeProduct(product: ProductAdmin) {
-    if (!window.confirm(`Remove “${product.name}” from the storefront? Its order and stock history will be retained.`)) return;
+    if (!window.confirm(`Archive “${product.name}” and mark it out of stock?`)) return;
     setBusyId(product.id);
     setError(null);
     try {
-      await deleteAdminProduct(product.id);
+      await archiveAdminProduct(product.id);
+      setNotice(`${product.name} archived and marked out of stock.`);
       setReloadKey((key) => key + 1);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not remove this product.");
@@ -57,6 +60,17 @@ export function AdminProductTable() {
       setBusyId(null);
     }
   }
+
+  useEffect(() => {
+    const deletedName = sessionStorage.getItem("permanentlyDeletedProduct");
+    if (deletedName) {
+      const timer = window.setTimeout(() => {
+        setNotice(`${deletedName} was permanently deleted.`);
+        sessionStorage.removeItem("permanentlyDeletedProduct");
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, []);
 
   return (
     <>
@@ -109,6 +123,7 @@ export function AdminProductTable() {
       </label>
 
       {error ? <p className="mt-6 text-sm text-danger">{error}</p> : null}
+      {notice ? <p role="status" className="mt-6 text-sm text-green-800">{notice}</p> : null}
 
       {data ? (
         <>
@@ -194,13 +209,16 @@ export function AdminProductTable() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <Link href={`/admin/products/${product.id}/edit`} className="text-xs font-semibold uppercase tracking-wider text-ink underline decoration-gold underline-offset-4">Edit</Link>
-                          {product.is_active && user?.role === "ADMIN" ? (
+                          {product.is_active && user ? (
                             <button type="button" onClick={() => void removeProduct(product)} disabled={busyId === product.id}
-                              className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-danger hover:underline disabled:opacity-50"
-                              aria-label={`Delete ${product.name}`}>
-                              <Trash2 className="size-3.5" aria-hidden />{busyId === product.id ? "Removing…" : "Delete"}
+                              className="text-xs font-semibold text-ink underline disabled:opacity-50">
+                              {busyId === product.id ? "Archiving…" : "Archive (mark out of stock)"}
                             </button>
-                          ) : <span className="text-xs text-stone">Removed</span>}
+                          ) : !product.is_active ? <span className="text-xs text-stone">Archived</span> : null}
+                          {user ? <AdminPermanentDeleteDialog product={product} onDeleted={() => {
+                            setNotice(`${product.name} was permanently deleted.`);
+                            setReloadKey((key) => key + 1);
+                          }} /> : null}
                         </div>
                       </td>
                     </tr>

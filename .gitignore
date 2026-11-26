@@ -19,3 +19,15 @@ frontend/.next-release/
 *.tar.gz
 *.tgz
 *.tar.gz
+
+*.tar.gz
+*.zip
+.tools/
+frontend/.next-release/
+.env
+**/.env
+node_modules/
+.next/
+venv/
+uploads/
+__pycache__/

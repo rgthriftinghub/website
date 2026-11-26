@@ -16,6 +16,7 @@ from app.models.inventory import InventoryItem
 from app.models.product import Product, ProductImage
 from app.core.config import get_settings
 from app.models.variant import ProductVariant
+from app.models.user import User
 from app.repositories import brand as brand_repo
 from app.repositories import category as category_repo
 from app.repositories import product as product_repo
@@ -409,6 +410,94 @@ def deactivate_product(db: Session, product_id: uuid.UUID) -> Product:
     db.commit()
     db.refresh(product)
     return product
+
+
+def permanently_delete_product(db: Session, product_id: uuid.UUID, *, actor: User) -> None:
+    """Delete a product and dependent catalogue rows in one transaction.
+
+    Order snapshots must remain linked to their historical catalogue IDs, so any
+    product that appears in an order is retained and must be archived instead.
+    The activity entry is flushed before the product is deleted, then committed
+    with the deletion so either both operations persist or neither does.
+    """
+    from sqlalchemy import or_, select
+    from sqlalchemy.exc import IntegrityError
+    from sqlalchemy.orm import selectinload
+
+    from app.models.order import OrderItem
+    from app.models.variant import ProductVariant
+    from app.services import activity
+
+    product = db.execute(
+        select(Product)
+        .where(Product.id == product_id)
+        .with_for_update()
+        .options(
+            selectinload(Product.images),
+            selectinload(Product.variants).selectinload(ProductVariant.inventory),
+        )
+    ).unique().scalar_one_or_none()
+    if product is None:
+        raise NotFoundError("Product not found")
+
+    variant_ids = select(ProductVariant.id).where(ProductVariant.product_id == product.id)
+    has_orders = db.execute(
+        select(
+            select(OrderItem.id)
+            .where(
+                or_(
+                    OrderItem.product_id == product.id,
+                    OrderItem.product_variant_id.in_(variant_ids),
+                )
+            )
+            .exists()
+        )
+    ).scalar_one()
+    if has_orders:
+        raise ConflictError("This product has past orders. Archive it instead.")
+
+    stock_details = [
+        {
+            "sku": variant.sku,
+            "size": variant.size,
+            "waist": variant.waist,
+            "color": variant.color,
+            "remaining_stock": variant.inventory.quantity if variant.inventory else 0,
+        }
+        for variant in product.variants
+    ]
+    logged = activity.log(
+        db,
+        actor=actor,
+        action=activity.PRODUCT_PERMANENTLY_DELETED,
+        entity_type="product",
+        entity_id=product.id,
+        description=(
+            f"Permanently deleted {product.item_code} — {product.name}; "
+            f"SKUs and remaining stock: {stock_details}"
+        ),
+        metadata={
+            "item_code": product.item_code,
+            "name": product.name,
+            "variants": stock_details,
+        },
+        commit=False,
+    )
+    if logged is None:
+        db.rollback()
+        raise RuntimeError("Could not record the product deletion in the activity log")
+
+    try:
+        db.delete(product)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ConflictError(
+            "This product is still referenced by existing records and could not be deleted."
+        ) from exc
+    except Exception:
+        db.rollback()
+        raise
 
 
 def set_variant_quantity(db: Session, variant_id: uuid.UUID, quantity: int) -> ProductVariant:

@@ -115,8 +115,12 @@ export function updateAdminProduct(id: string, payload: Record<string, unknown>)
   return apiRequest<ProductAdmin>(`/admin/products/${encodeURIComponent(id)}`, { method: "PUT", body: payload });
 }
 
-export function deleteAdminProduct(id: string): Promise<ProductAdmin> {
+export function archiveAdminProduct(id: string): Promise<ProductAdmin> {
   return apiRequest<ProductAdmin>(`/admin/products/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function permanentlyDeleteAdminProduct(id: string): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>(`/admin/products/${encodeURIComponent(id)}/permanent`, { method: "DELETE" });
 }
 
 export async function uploadAdminProductImage(file: File): Promise<{ image_url: string }> {

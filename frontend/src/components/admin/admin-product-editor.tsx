@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { AdminGate } from "@/components/admin/admin-gate";
+import { AdminGate, useAdminUser } from "@/components/admin/admin-gate";
+import { AdminPermanentDeleteDialog } from "@/components/admin/admin-permanent-delete-dialog";
+import { ProductDescriptionField } from "@/components/admin/product-description-field";
 import { Button } from "@/components/ui/button";
 import { MediaImage as Image } from "@/components/ui/media-image";
-import { createAdminProduct, getAdminProduct, listAdminCategories, listAdminProducts, updateAdminProduct, uploadAdminProductImage } from "@/lib/api/catalog";
+import { archiveAdminProduct, createAdminProduct, getAdminProduct, listAdminCategories, listAdminProducts, updateAdminProduct, uploadAdminProductImage } from "@/lib/api/catalog";
 import type { CategoryDetail, ProductAdmin, ProductCondition } from "@/lib/api/types";
 
 const PHOTOS = [
@@ -52,6 +55,8 @@ const imageUrl = (file: string) => `/products/owner-uploaded/${encodeURIComponen
 const slugify = (value: string) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 export function AdminProductEditor({ productId }: { productId?: string }) {
+  const router = useRouter();
+  const user = useAdminUser();
   const [categories, setCategories] = useState<CategoryDetail[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState("");
@@ -207,6 +212,20 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
     finally { setBusy(false); }
   }
 
+  async function archiveProduct() {
+    if (!product || !window.confirm(`Archive “${product.name}” and mark it out of stock?`)) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const archived = await archiveAdminProduct(product.id);
+      setProduct(archived);
+      setNotice("Product archived and marked out of stock.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not archive this product.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return <AdminGate><main className="mx-auto max-w-5xl space-y-7 px-5 py-10">
     <Link href="/admin/products" className="text-sm text-ink-muted hover:text-ink">← Back to products</Link>
     <header><p className="eyebrow">Catalogue</p><h1 className="mt-2 text-3xl">{product ? "Edit product" : "Add product"}</h1>
@@ -217,8 +236,8 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
     </section> : null}
     <form onSubmit={save} className="space-y-5 border border-line bg-paper p-5">
       <label className="block text-sm">Product name<input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block h-11 w-full border border-line px-3" /></label>
-      <label className="block text-sm">Short description (optional)<textarea maxLength={400} rows={2} value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} placeholder="A brief summary shown with the product" className="mt-1 block w-full border border-line px-3 py-2" /><span className="mt-1 block text-xs text-stone">{shortDescription.length}/400 characters</span></label>
-      <label className="block text-sm">Product description (optional)<textarea rows={5} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Details, fit, fabric, condition, or other notes" className="mt-1 block w-full border border-line px-3 py-2" /></label>
+      <ProductDescriptionField id="product-short-description" label="Short description (optional)" value={shortDescription} onChange={setShortDescription} />
+      <ProductDescriptionField value={description} onChange={setDescription} />
       <label className="block text-sm">Price (PKR)<input required type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1 block h-11 w-full border border-line px-3" /></label>
       {!product ? <section className="space-y-3 border border-line bg-paper-alt p-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Product category</h2><Link href="/admin/categories" className="text-sm font-semibold text-gold-deep underline">+ Add a category</Link></div>
@@ -248,5 +267,12 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
       {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}{notice ? <p role="status" className="text-sm text-green-800">{notice}</p> : null}
       <Button disabled={busy}>{busy ? "Saving…" : product ? "Save product" : "Add product"}</Button>
     </form>
+    {product && user ? <section className="flex flex-wrap items-center gap-5 border border-line bg-paper p-5">
+      {product.is_active ? <button type="button" disabled={busy} onClick={() => void archiveProduct()} className="text-sm font-semibold text-ink underline disabled:opacity-50">Archive (mark out of stock)</button> : <span className="text-sm text-ink-muted">Archived</span>}
+      <AdminPermanentDeleteDialog product={product} onDeleted={() => {
+        sessionStorage.setItem("permanentlyDeletedProduct", product.name);
+        router.push("/admin/products");
+      }} />
+    </section> : null}
   </main></AdminGate>;
 }
