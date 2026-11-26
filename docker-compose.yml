@@ -1,0 +1,107 @@
+name: rg-thrifting-hub
+
+services:
+  db:
+    image: postgres:16-alpine
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rg_thrifting_hub}
+      POSTGRES_USER: ${POSTGRES_USER:-rgthrifting}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-replace-with-a-local-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    ports:
+      # Host port is configurable so it can avoid a locally installed PostgreSQL.
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+
+  db-backup:
+    image: postgres:16-alpine
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:-rg_thrifting_hub}
+      PGUSER: ${POSTGRES_USER:-rgthrifting}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-replace-with-a-local-password}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - postgres_backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "while true; do stamp=$$(date -u +%Y%m%dT%H%M%SZ); if pg_dump --format=custom --no-owner --file=/backups/rg_thrifting_hub_$$stamp.dump; then find /backups -type f -name 'rg_thrifting_hub_*.dump' -mtime +14 -delete; else rm -f /backups/rg_thrifting_hub_$$stamp.dump; fi; sleep 86400; done"
+
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      SECRET_KEY: ${SECRET_KEY:-replace-with-a-long-random-value}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-replace-with-a-different-long-random-value}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      # Reaches PostgreSQL by service name. Keep the credentials here in sync with
+      # the POSTGRES_* values above (both are set together in .env).
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://rgthrifting:replace-with-a-local-password@db:5432/rg_thrifting_hub}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Product photos must survive backend container recreation.
+      - product_media:/app/uploads
+    ports:
+      - "8000:8000"
+    healthcheck:
+      # 127.0.0.1, not localhost: the server binds IPv4 only, and localhost can resolve to ::1 first.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Baked into the browser bundle, so this is the host-visible backend URL,
+        # not the internal Docker service name.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/api/v1}
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000/api/v1}
+      # Used only by server-side rendering inside this container, where the API
+      # is reachable by service name. The browser continues to use the public URL.
+      API_INTERNAL_BASE_URL: ${API_INTERNAL_BASE_URL:-http://backend:8000/api/v1}
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    healthcheck:
+      # 127.0.0.1, not localhost: Next.js binds IPv4 only and Alpine resolves localhost to ::1 first.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+volumes:
+  postgres_data:
+  postgres_backups:
+  product_media:

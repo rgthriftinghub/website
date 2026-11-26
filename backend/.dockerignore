@@ -1,0 +1,22 @@
+# Local virtualenv; dependencies are installed inside the image
+.venv
+
+# Python caches
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.coverage
+htmlcov
+
+# Never ship local secrets
+.env
+.env.*
+!.env.example
+
+# Not needed by the build
+.git
+.gitignore
+Dockerfile
+.dockerignore
+README.md
