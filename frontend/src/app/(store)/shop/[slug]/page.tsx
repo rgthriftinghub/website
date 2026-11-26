@@ -23,7 +23,7 @@ export default async function ProductPage({ params }: Props) {
     <Link href="/shop" className="text-xs font-semibold uppercase tracking-wider text-ink-muted hover:text-ink">← Shop</Link>
     <div className="mt-6 grid gap-8 lg:grid-cols-2 lg:gap-12">
       <ProductGallery images={product.images} productName={product.name} discountPercent={product.discount_percent} isNewArrival={product.is_new_arrival} />
-      <section className="lg:py-4"><p className="eyebrow">{product.brand?.name ?? product.category.name}</p><h1 className="mt-3 font-display text-3xl">{product.name}</h1>
+      <section className="lg:py-4"><p className="eyebrow">{product.brand?.name ?? product.category.name}</p><h1 className="mt-3 font-product-title text-3xl font-medium">{product.name}</h1>
         {product.short_description ? <ProductDescription text={product.short_description} className="mt-3 text-sm leading-6 text-ink-muted" /> : null}
         <p className="mt-3 text-sm text-ink-muted">{product.review_count ? `★ ${product.average_rating.toFixed(1)} · ${product.review_count} reviews` : "No ratings yet"}</p>
         <p className="mt-5 text-lg font-semibold">{formatPrice(product.effective_price)}</p>

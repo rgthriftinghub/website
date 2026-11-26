@@ -8,6 +8,7 @@ if (!publicApiBaseUrl) {
 const nextConfig: NextConfig = {
   // Emits a minimal self-contained server bundle for the Docker runtime stage.
   output: "standalone",
+  outputFileTracingRoot: process.cwd(),
   env: { NEXT_PUBLIC_API_BASE_URL: publicApiBaseUrl },
 };
 

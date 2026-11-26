@@ -1,24 +1,26 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import localFont from "next/font/local";
 
 import "./globals.css";
+
+const playfair = localFont({
+  src: "../fonts/playfair-display-latin.woff2",
+  display: "swap",
+  variable: "--font-playfair",
+  weight: "400 900",
+});
+
+const inter = localFont({
+  src: "../fonts/inter-latin.woff2",
+  display: "swap",
+  variable: "--font-inter",
+  weight: "100 900",
+});
 
 /**
  * Type pairing chosen to match the logo: a high-contrast serif echoing the
  * logo's R and G, set against a neutral grotesque for interface text.
  */
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-playfair",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-inter",
-});
-
 const siteName = "RG Thrifting Hub";
 const siteDescription =
   "Curated thrift, export quality and new clothing for men and women. Hand-picked pieces, honest condition grading, and per-size stock you can trust.";

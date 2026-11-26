@@ -36,6 +36,7 @@
   /* Populated by next/font in app/layout.tsx, with system fallbacks. */
   --font-display: var(--font-playfair), ui-serif, Georgia, serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-product-title: Arial, Helvetica, sans-serif;
 
   /* Restrained radii — a fashion storefront should not look like a dashboard. */
   --radius-none: 0px;

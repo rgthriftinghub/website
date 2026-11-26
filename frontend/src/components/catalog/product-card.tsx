@@ -77,7 +77,7 @@ export function ProductCard({
           <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-gold-deep">
             {product.brand?.name ?? product.category.name}
           </p>
-          <h3 className="mt-1.5 font-display text-[15px] leading-snug text-ink">{product.name}</h3>
+          <h3 className="mt-1.5 font-product-title text-[15px] font-medium leading-snug text-ink">{product.name}</h3>
           {product.short_description ? (
             <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-ink-muted">
               {product.short_description}

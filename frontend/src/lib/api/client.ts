@@ -85,11 +85,15 @@ async function readDetail(response: Response): Promise<unknown> {
 function describe(detail: unknown, status: number): string {
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {
-    const first = detail[0] as { msg?: string; loc?: unknown[] } | undefined;
-    if (first?.msg) {
-      const field = Array.isArray(first.loc) ? first.loc.at(-1) : undefined;
-      return field ? `${String(field)}: ${first.msg}` : first.msg;
-    }
+    const messages = detail.map((entry) => {
+      const issue = entry as { msg?: string; loc?: unknown[] };
+      if (!issue?.msg) return null;
+      const path = Array.isArray(issue.loc)
+        ? issue.loc.filter((part) => part !== "body" && part !== "query" && part !== "path").join(".")
+        : "";
+      return path ? `${path}: ${issue.msg}` : issue.msg;
+    }).filter((message): message is string => message !== null);
+    if (messages.length) return messages.join("; ");
   }
   return `Request failed with status ${status}`;
 }

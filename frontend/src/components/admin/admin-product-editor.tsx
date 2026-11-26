@@ -65,6 +65,7 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
   const [name, setName] = useState("");
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
   const [price, setPrice] = useState("");
   const [gallery, setGallery] = useState<Array<{ image_url: string; alt_text: string | null; sort_order: number; is_primary: boolean }>>([
     { image_url: imageUrl(PHOTOS[0][0]), alt_text: "Pale pink button shirt", sort_order: 0, is_primary: true },
@@ -93,6 +94,7 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
     if (productId) getAdminProduct(productId).then((item) => {
       setProduct(item); setName(item.name); setPrice(item.regular_price);
       setShortDescription(item.short_description ?? ""); setDescription(item.description ?? "");
+      setMetaDescription(item.meta_description ?? "");
       setGallery(item.images.map((image, index) => ({ image_url: image.image_url, alt_text: image.alt_text, sort_order: index, is_primary: image.is_primary })));
       setSizeRows(item.variants.length
         ? item.variants.map((variant) => ({ size: variant.size ?? "", quantity: String(variant.quantity), existing: variant }))
@@ -145,7 +147,8 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
       if (product) {
         await updateAdminProduct(product.id, {
           name, short_description: shortDescription.trim() || null,
-          description: description.trim() || null, regular_price: price,
+          description: description.trim() || null, meta_description: metaDescription.trim() || null,
+          regular_price: price,
           condition,
           item_code: itemCode,
           single_piece: singlePiece,
@@ -169,6 +172,7 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
           name, slug: slugify(name), sku: `RG-W-${code}`,
           short_description: shortDescription.trim() || null,
           description: description.trim() || null,
+          meta_description: metaDescription.trim() || null,
           category_id: category.id, subcategory_id: subcategory?.id ?? null, brand_id: null,
           regular_price: price, sale_price: null, condition, single_piece: singlePiece, gender,
           product_type: productType, color: null, fabric: null, is_featured: false, is_new_arrival: true,
@@ -238,6 +242,7 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
       <label className="block text-sm">Product name<input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block h-11 w-full border border-line px-3" /></label>
       <ProductDescriptionField id="product-short-description" label="Short description (optional)" value={shortDescription} onChange={setShortDescription} />
       <ProductDescriptionField value={description} onChange={setDescription} />
+      <label className="block text-sm">SEO meta description (optional)<textarea maxLength={50000} rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value.slice(0, 50000))} className="mt-1 block w-full border border-line px-3 py-2" /></label>
       <label className="block text-sm">Price (PKR)<input required type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1 block h-11 w-full border border-line px-3" /></label>
       {!product ? <section className="space-y-3 border border-line bg-paper-alt p-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Product category</h2><Link href="/admin/categories" className="text-sm font-semibold text-gold-deep underline">+ Add a category</Link></div>

@@ -257,7 +257,7 @@ function SaleRail({ products }: { products: ProductListItem[] }) {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-gold">
                     {product.brand?.name ?? "RG Select"}
                   </p>
-                  <h3 className="mt-1.5 font-display text-[15px] leading-snug text-paper">
+                  <h3 className="mt-1.5 font-product-title text-[15px] font-medium leading-snug text-paper">
                     {product.name}
                   </h3>
                   <div className="mt-2 flex items-baseline gap-2">
