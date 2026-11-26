@@ -13,7 +13,7 @@ import {
 import * as commerce from "@/lib/api/commerce";
 import { getCurrentUser, logout } from "@/lib/api/catalog";
 import { ApiClientError } from "@/lib/api/client";
-import type { Cart, User } from "@/lib/api/types";
+import type { Cart, GuestCartLine, User } from "@/lib/api/types";
 
 /**
  * Shared session, bag, and wishlist state.
@@ -36,6 +36,7 @@ interface StoreState {
   addToCart: (variantId: string, quantity?: number) => Promise<void>;
   updateCartItem: (itemId: string, quantity: number) => Promise<void>;
   removeCartItem: (itemId: string) => Promise<void>;
+  clearCart: () => Promise<void>;
   toggleWishlist: (productId: string) => Promise<boolean>;
   isWishlisted: (productId: string) => boolean;
   signOut: () => Promise<void>;
@@ -43,6 +44,26 @@ interface StoreState {
 
 const StoreContext = createContext<StoreState | null>(null);
 const GUEST_WISHLIST_KEY = "rgthriftinghub-guest-wishlist";
+const GUEST_CART_KEY = "rgthriftinghub-guest-cart";
+
+function guestCartLines(): GuestCartLine[] {
+  try {
+    const value = localStorage.getItem(GUEST_CART_KEY);
+    const parsed: unknown = value ? JSON.parse(value) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((line): line is GuestCartLine =>
+      !!line && typeof line.product_variant_id === "string" &&
+      Number.isInteger(line.quantity) && line.quantity > 0 && line.quantity <= 10
+    ).slice(0, 50);
+  } catch {
+    return [];
+  }
+}
+
+function saveGuestCart(lines: GuestCartLine[]) {
+  if (lines.length) localStorage.setItem(GUEST_CART_KEY, JSON.stringify(lines));
+  else localStorage.removeItem(GUEST_CART_KEY);
+}
 
 function guestWishlistIds(): Set<string> {
   try {
@@ -79,6 +100,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const loadGuestCart = useCallback(async () => {
+    setCart(await commerce.previewGuestCart(guestCartLines()));
+  }, []);
+
+  const mergeGuestCart = useCallback(async () => {
+    const failed: GuestCartLine[] = [];
+    for (const line of guestCartLines()) {
+      try {
+        await commerce.addToCart(line.product_variant_id, line.quantity);
+      } catch {
+        failed.push(line);
+      }
+    }
+    saveGuestCart(failed);
+    await loadCustomerData();
+  }, [loadCustomerData]);
+
   const refreshSession = useCallback(async () => {
     try {
       const signedIn = await getCurrentUser();
@@ -89,16 +127,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ))).filter((id): id is string => id !== null);
       if (failed.length) localStorage.setItem(GUEST_WISHLIST_KEY, JSON.stringify(failed));
       else localStorage.removeItem(GUEST_WISHLIST_KEY);
-      await loadCustomerData();
+      if (guestCartLines().length) await mergeGuestCart();
+      else await loadCustomerData();
     } catch {
       // Keep anonymous wishlist selections in browser storage.
       setUser(null);
-      setCart(null);
+      await loadGuestCart().catch(() => setCart(null));
       setWishlistIds(guestWishlistIds());
     } finally {
       setIsLoading(false);
     }
-  }, [loadCustomerData]);
+  }, [loadCustomerData, loadGuestCart, mergeGuestCart]);
 
   // The initial load runs as a guarded promise chain rather than calling the
   // async `refreshSession` directly, so no state is set after unmount and the
@@ -115,12 +154,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ))).filter((id): id is string => id !== null);
         if (failed.length) localStorage.setItem(GUEST_WISHLIST_KEY, JSON.stringify(failed));
         else localStorage.removeItem(GUEST_WISHLIST_KEY);
-        await loadCustomerData();
+        if (guestCartLines().length) await mergeGuestCart();
+        else await loadCustomerData();
       })
       .catch(() => {
         if (cancelled) return;
         setUser(null);
-        setCart(null);
+        void loadGuestCart().catch(() => setCart(null));
         setWishlistIds(guestWishlistIds());
       })
       .finally(() => {
@@ -129,29 +169,69 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [loadCustomerData]);
+  }, [loadCustomerData, loadGuestCart, mergeGuestCart]);
 
   const refreshCart = useCallback(async () => {
     try {
-      setCart(await commerce.getCart());
+      setCart(user ? await commerce.getCart() : await commerce.previewGuestCart(guestCartLines()));
     } catch {
       setCart(null);
     }
-  }, []);
+  }, [user]);
 
   // Cart mutations return the whole updated cart, so state stays in step with
   // the backend without a follow-up request.
   const addToCart = useCallback(async (variantId: string, quantity = 1) => {
-    setCart(await commerce.addToCart(variantId, quantity));
-  }, []);
+    if (user) {
+      setCart(await commerce.addToCart(variantId, quantity));
+      return;
+    }
+    const lines = guestCartLines();
+    const existing = lines.find((line) => line.product_variant_id === variantId);
+    const next = existing
+      ? lines.map((line) => line.product_variant_id === variantId ? { ...line, quantity: line.quantity + quantity } : line)
+      : [...lines, { product_variant_id: variantId, quantity }];
+    if (next.some((line) => line.quantity > 10)) throw new Error("You can add up to 10 of one size.");
+    if (next.length > 50) throw new Error("Your bag can contain up to 50 different items.");
+    saveGuestCart(next);
+    setCart(await commerce.previewGuestCart(next));
+  }, [user]);
 
   const updateCartItem = useCallback(async (itemId: string, quantity: number) => {
-    setCart(await commerce.updateCartItem(itemId, quantity));
-  }, []);
+    if (user) {
+      setCart(await commerce.updateCartItem(itemId, quantity));
+      return;
+    }
+    const variantId = cart?.items.find((item) => item.id === itemId)?.product_variant_id;
+    if (!variantId) return;
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) return;
+    const next = guestCartLines().map((line) => line.product_variant_id === variantId ? { ...line, quantity } : line);
+    saveGuestCart(next);
+    setCart(await commerce.previewGuestCart(next));
+  }, [cart, user]);
 
   const removeCartItem = useCallback(async (itemId: string) => {
-    setCart(await commerce.removeCartItem(itemId));
-  }, []);
+    if (user) {
+      setCart(await commerce.removeCartItem(itemId));
+      return;
+    }
+    const variantId = cart?.items.find((item) => item.id === itemId)?.product_variant_id;
+    const next = guestCartLines().filter((line) => line.product_variant_id !== variantId);
+    saveGuestCart(next);
+    setCart(await commerce.previewGuestCart(next));
+  }, [cart, user]);
+
+  const clearCart = useCallback(async () => {
+    if (user) {
+      setCart(await commerce.clearCart());
+      return;
+    }
+    saveGuestCart([]);
+    setCart((current) => current ? {
+      ...current, id: null, items: [], item_count: 0, subtotal: "0.00",
+      delivery_amount: "0.00", total: "0.00", has_unavailable_items: false,
+    } : current);
+  }, [user]);
 
   const toggleWishlist = useCallback(
     async (productId: string): Promise<boolean> => {
@@ -191,9 +271,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await logout().catch(() => undefined);
     localStorage.setItem(GUEST_WISHLIST_KEY, JSON.stringify([...wishlistIds].slice(0, 50)));
     setUser(null);
-    setCart(null);
     setWishlistIds(new Set(wishlistIds));
-  }, [wishlistIds]);
+    await loadGuestCart().catch(() => setCart(null));
+  }, [loadGuestCart, wishlistIds]);
 
   const value = useMemo<StoreState>(
     () => ({
@@ -209,6 +289,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addToCart,
       updateCartItem,
       removeCartItem,
+      clearCart,
       toggleWishlist,
       isWishlisted,
       signOut,
@@ -223,6 +304,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addToCart,
       updateCartItem,
       removeCartItem,
+      clearCart,
       toggleWishlist,
       isWishlisted,
       signOut,

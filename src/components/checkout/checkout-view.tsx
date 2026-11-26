@@ -18,7 +18,7 @@ import { useEffect, useState } from "react";
 import { AddressForm } from "@/components/checkout/address-form";
 import { errorMessage, useStore } from "@/components/providers/store-provider";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { getCheckoutConfig, listAddresses, placeOrder } from "@/lib/api/commerce";
+import { getCheckoutConfig, listAddresses, placeGuestOrder, placeOrder } from "@/lib/api/commerce";
 import { listBankAccounts } from "@/lib/api/payments";
 import type {
   Address,
@@ -124,7 +124,7 @@ function Section({
 
 export function CheckoutView() {
   const router = useRouter();
-  const { user, cart, refreshCart } = useStore();
+  const { user, cart, refreshCart, clearCart } = useStore();
 
   const [config, setConfig] = useState<CheckoutConfig | null>(null);
   const [addresses, setAddresses] = useState<Address[] | null>(null);
@@ -136,6 +136,10 @@ export function CheckoutView() {
   const [couponCode, setCouponCode] = useState("");
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [guestDelivery, setGuestDelivery] = useState({
+    full_name: "", phone: "", contact_email: "", address_line_1: "",
+    address_line_2: "", city: "", province: "", postal_code: "",
+  });
 
   useEffect(() => {
     void getCheckoutConfig().then(setConfig).catch(() => setConfig(null));
@@ -146,7 +150,13 @@ export function CheckoutView() {
       .catch(() => setBankAccounts([]));
   }, []);
 
+  const userId = user?.id;
   useEffect(() => {
+    if (!userId) {
+      setAddresses([]);
+      setSelectedAddressId(null);
+      return;
+    }
     void listAddresses()
       .then((rows) => {
         setAddresses(rows);
@@ -157,25 +167,64 @@ export function CheckoutView() {
         setShowAddressForm(rows.length === 0);
       })
       .catch(() => setAddresses([]));
-  }, []);
+  }, [userId]);
 
   async function handlePlaceOrder() {
-    if (!selectedAddressId) {
+    if (user && !selectedAddressId) {
       setError("Choose a delivery address first.");
       return;
+    }
+    if (!user) {
+      const phoneDigits = guestDelivery.phone.replace(/\D/g, "");
+      if (guestDelivery.full_name.trim().length < 2) {
+        setError("Enter your full name."); return;
+      }
+      if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+        setError("Enter a valid phone number with 7 to 15 digits."); return;
+      }
+      if (guestDelivery.address_line_1.trim().length < 5 || guestDelivery.city.trim().length < 2) {
+        setError("Enter a complete delivery address and city."); return;
+      }
+      const email = guestDelivery.contact_email.trim();
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setError("Enter a valid email address or leave it blank."); return;
+      }
     }
     setPlacing(true);
     setError(null);
     try {
-      const order = await placeOrder({
-        address_id: selectedAddressId,
-        payment_method: paymentMethod,
-        delivery_method: "STANDARD",
-        customer_note: note.trim() || undefined,
-        coupon_code: couponCode.trim().toUpperCase() || undefined,
-      });
-      // The bag was emptied server-side inside the same transaction.
-      await refreshCart();
+      const order = user
+        ? await placeOrder({
+            address_id: selectedAddressId!,
+            payment_method: paymentMethod,
+            delivery_method: "STANDARD",
+            customer_note: note.trim() || undefined,
+            coupon_code: couponCode.trim().toUpperCase() || undefined,
+          })
+        : await placeGuestOrder({
+            items: cart!.items.map((item) => ({ product_variant_id: item.product_variant_id, quantity: item.quantity })),
+            delivery: {
+              full_name: guestDelivery.full_name.trim(), phone: guestDelivery.phone.trim(),
+              address_line_1: guestDelivery.address_line_1.trim(),
+              address_line_2: guestDelivery.address_line_2.trim() || undefined,
+              city: guestDelivery.city.trim(), province: guestDelivery.province.trim() || undefined,
+              postal_code: guestDelivery.postal_code.trim() || undefined,
+            },
+            payment_method: "COD",
+            delivery_method: "STANDARD",
+            contact_email: guestDelivery.contact_email.trim() || undefined,
+            customer_note: note.trim() || undefined,
+            coupon_code: couponCode.trim().toUpperCase() || undefined,
+          });
+      if (!user) {
+        try {
+          sessionStorage.setItem("rgthriftinghub-last-guest-order", JSON.stringify(order));
+        } catch {
+          // The order is already safely saved; storage is only for this confirmation screen.
+        }
+      }
+      if (user) await refreshCart();
+      else await clearCart();
       router.push(`/checkout/success/${encodeURIComponent(order.order_number)}`);
     } catch (caught) {
       setError(errorMessage(caught, "We could not place your order. Please try again."));
@@ -209,7 +258,7 @@ export function CheckoutView() {
     );
   }
 
-  const methods = config?.payment_methods ?? ["COD", "BANK_TRANSFER"];
+  const methods: PaymentMethod[] = user ? config?.payment_methods ?? ["COD", "BANK_TRANSFER"] : ["COD"];
   const blocked = cart.has_unavailable_items;
 
   return (
@@ -233,17 +282,23 @@ export function CheckoutView() {
       <div className="mt-8 lg:grid lg:grid-cols-[1fr_23rem] lg:gap-12">
         <div>
           <Section step={1} title="Contact information">
-            <p className="text-sm text-ink">
-              {user?.first_name} {user?.last_name}
-            </p>
-            <p className="text-sm text-ink-muted">{user?.email}</p>
-            <p className="mt-2 text-xs text-stone">
-              We will use this to confirm your order. Update it from your account page.
-            </p>
+            {user ? (
+              <>
+                <p className="text-sm text-ink">{user.first_name} {user.last_name}</p>
+                <p className="text-sm text-ink-muted">{user.email}</p>
+                <p className="mt-2 text-xs text-stone">We will use this to confirm your order.</p>
+              </>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm">Full name<input required minLength={2} maxLength={160} autoComplete="name" value={guestDelivery.full_name} onChange={(event) => setGuestDelivery((current) => ({ ...current, full_name: event.target.value }))} className="mt-1 block h-11 w-full border border-line px-3" /></label>
+                <label className="block text-sm">Phone number<input required type="tel" inputMode="tel" autoComplete="tel" pattern="[+0-9(). -]{7,32}" value={guestDelivery.phone} onChange={(event) => setGuestDelivery((current) => ({ ...current, phone: event.target.value }))} className="mt-1 block h-11 w-full border border-line px-3" /></label>
+                <label className="block text-sm sm:col-span-2">Email (optional)<input type="email" maxLength={320} autoComplete="email" value={guestDelivery.contact_email} onChange={(event) => setGuestDelivery((current) => ({ ...current, contact_email: event.target.value }))} className="mt-1 block h-11 w-full border border-line px-3" /><span className="mt-1 block text-xs text-stone">We’ll email an order confirmation if you provide an address.</span></label>
+              </div>
+            )}
           </Section>
 
           <Section step={2} title="Shipping address">
-            {addresses.length > 0 ? (
+            {user && addresses.length > 0 ? (
               <div className="space-y-2.5">
                 {addresses.map((address) => (
                   <label
@@ -285,7 +340,7 @@ export function CheckoutView() {
               </div>
             ) : null}
 
-            {showAddressForm ? (
+            {user && showAddressForm ? (
               <div className={cn(addresses.length > 0 && "mt-5 border-t border-line pt-5")}>
                 <AddressForm
                   isFirst={addresses.length === 0}
@@ -298,7 +353,7 @@ export function CheckoutView() {
                   }}
                 />
               </div>
-            ) : (
+            ) : user ? (
               <button
                 type="button"
                 onClick={() => setShowAddressForm(true)}
@@ -307,6 +362,14 @@ export function CheckoutView() {
                 <Plus className="size-3.5" aria-hidden />
                 Add a new address
               </button>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm sm:col-span-2">Street address<input required minLength={5} maxLength={200} autoComplete="street-address" value={guestDelivery.address_line_1} onChange={(event) => setGuestDelivery((current) => ({ ...current, address_line_1: event.target.value }))} className="mt-1 block h-11 w-full border border-line px-3" /></label>
+                <label className="block text-sm sm:col-span-2">Apartment, suite, landmark (optional)<input maxLength={200} value={guestDelivery.address_line_2} onChange={(event) => setGuestDelivery((current) => ({ ...current, address_line_2: event.target.value }))} className="mt-1 block h-11 w-full border border-line px-3" /></label>
+                <label className="block text-sm">City<input required minLength={2} maxLength={80} autoComplete="address-level2" value={guestDelivery.city} onChange={(event) => setGuestDelivery((current) => ({ ...current, city: event.target.value }))} className="mt-1 block h-11 w-full border border-line px-3" /></label>
+                <label className="block text-sm">Province (optional)<input maxLength={80} autoComplete="address-level1" value={guestDelivery.province} onChange={(event) => setGuestDelivery((current) => ({ ...current, province: event.target.value }))} className="mt-1 block h-11 w-full border border-line px-3" /></label>
+                <label className="block text-sm">Postal code (optional)<input maxLength={20} autoComplete="postal-code" value={guestDelivery.postal_code} onChange={(event) => setGuestDelivery((current) => ({ ...current, postal_code: event.target.value }))} className="mt-1 block h-11 w-full border border-line px-3" /></label>
+              </div>
             )}
           </Section>
 
@@ -473,7 +536,7 @@ export function CheckoutView() {
               size="lg"
               className="mt-6 w-full"
               onClick={handlePlaceOrder}
-              disabled={placing || blocked || !selectedAddressId}
+              disabled={placing || blocked || (!!user && !selectedAddressId)}
             >
               {placing ? (
                 <>

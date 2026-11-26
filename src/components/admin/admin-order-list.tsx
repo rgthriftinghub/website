@@ -234,9 +234,9 @@ export function AdminOrderList() {
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-ink">
-                        {order.customer.first_name} {order.customer.last_name}
+                        {order.customer.is_guest ? "Guest · " : ""}{order.customer.first_name} {order.customer.last_name}
                       </p>
-                      <p className="text-[11px] text-stone">{order.customer.email}</p>
+                      <p className="text-[11px] text-stone">{order.customer.email ?? "No email provided"}</p>
                     </td>
                     <td className="px-4 py-3 text-xs text-ink-muted">
                       {new Date(order.created_at).toLocaleDateString("en-PK", {

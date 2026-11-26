@@ -5,6 +5,7 @@ import { ProductReviews } from "@/components/catalog/product-reviews";
 import { VariantPicker } from "@/components/catalog/variant-picker";
 import { getProduct } from "@/lib/api/catalog";
 import { conditionLabel, formatPrice } from "@/lib/format";
+import { THRIFT_DISCLAIMER } from "@/lib/disclaimer";
 
 type Props = { params: Promise<{ slug: string }> };
 async function load(slug: string) {
@@ -29,6 +30,7 @@ export default async function ProductPage({ params }: Props) {
         <VariantPicker variants={product.variants} productPrice={product.effective_price} productId={product.id} productName={product.name} />
         <p className="mt-5"><span className="inline-flex border border-line-strong px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]">{conditionLabel(product.condition)}</span></p>
         <p className="mt-3 text-xs text-stone">{product.color ?? ""} {product.fabric ?? ""}</p>
+        <p className="mt-5 border-t border-line pt-4 text-xs leading-relaxed text-stone">{THRIFT_DISCLAIMER}</p>
       </section>
     </div>
     <ProductReviews slug={slug} average={product.average_rating} count={product.review_count} />

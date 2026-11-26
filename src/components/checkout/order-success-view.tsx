@@ -5,6 +5,7 @@ import { Check, FileText, Package, Truck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PAYMENT_METHOD_LABELS } from "@/components/orders/order-status";
+import { useStore } from "@/components/providers/store-provider";
 import { ButtonLink } from "@/components/ui/button";
 import { getCheckoutConfig, getMyOrder, myInvoiceUrl } from "@/lib/api/commerce";
 import type { CheckoutConfig, Order } from "@/lib/api/types";
@@ -17,24 +18,41 @@ const PAYMENT_INSTRUCTIONS: Record<string, string> = {
 };
 
 export function OrderSuccessView({ orderNumber }: { orderNumber: string }) {
+  const { isAuthenticated } = useStore();
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkoutConfig, setCheckoutConfig] = useState<CheckoutConfig | null>(null);
 
   useEffect(() => {
     void getCheckoutConfig().then(setCheckoutConfig).catch(() => undefined);
+    const guestOrder = sessionStorage.getItem("rgthriftinghub-last-guest-order");
+    if (guestOrder) {
+      try {
+        const parsed = JSON.parse(guestOrder) as Order;
+        if (parsed.order_number === orderNumber) {
+          setOrder(parsed);
+          return;
+        }
+      } catch {
+        sessionStorage.removeItem("rgthriftinghub-last-guest-order");
+      }
+    }
+    if (!isAuthenticated) {
+      setError("We could not find a recent confirmation for this order. Use your order number and phone to track it.");
+      return;
+    }
     getMyOrder(orderNumber)
       .then(setOrder)
       .catch(() => setError("We could not find that order on your account."));
-  }, [orderNumber]);
+  }, [isAuthenticated, orderNumber]);
 
   if (error) {
     return (
       <div className="mx-auto max-w-md px-4 py-24 text-center">
         <h1 className="font-display text-3xl">Order not found</h1>
         <p className="mt-3 text-sm text-ink-muted">{error}</p>
-        <ButtonLink href="/account/orders" className="mt-8">
-          View your orders
+        <ButtonLink href={isAuthenticated ? "/account/orders" : "/track-order"} className="mt-8">
+          {isAuthenticated ? "View your orders" : "Track your order"}
         </ButtonLink>
       </div>
     );
@@ -135,7 +153,9 @@ export function OrderSuccessView({ orderNumber }: { orderNumber: string }) {
                 : PAYMENT_INSTRUCTIONS[order.payment_method] ?? ""}
           </p>
           <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-            You can follow progress on your order page at any time.
+            {isAuthenticated
+              ? "You can follow progress on your order page at any time."
+              : "Keep your order number handy. You can track it with your phone number."}
           </p>
         </section>
       </div>
@@ -155,9 +175,11 @@ export function OrderSuccessView({ orderNumber }: { orderNumber: string }) {
       </ul>
 
       <div className="mt-8 flex flex-wrap justify-center gap-2.5">
-        <ButtonLink href={`/account/orders/${order.order_number}`} size="lg">
-          View order
-        </ButtonLink>
+        {isAuthenticated ? (
+          <ButtonLink href={`/account/orders/${order.order_number}`} size="lg">View order</ButtonLink>
+        ) : (
+          <ButtonLink href="/track-order" size="lg">Track order</ButtonLink>
+        )}
         <ButtonLink href="/shop" variant="secondary" size="lg">
           Continue shopping
         </ButtonLink>
@@ -176,7 +198,7 @@ export function OrderSuccessView({ orderNumber }: { orderNumber: string }) {
         </div>
       ) : null}
 
-      <div className="mt-6 text-center">
+      {isAuthenticated ? <div className="mt-6 text-center">
         <Link
           href={myInvoiceUrl(order.order_number)}
           target="_blank"
@@ -186,7 +208,7 @@ export function OrderSuccessView({ orderNumber }: { orderNumber: string }) {
           <FileText className="size-3.5" aria-hidden />
           Download invoice
         </Link>
-      </div>
+      </div> : null}
     </div>
   );
 }

@@ -17,6 +17,8 @@ import type {
   Cart,
   CheckoutConfig,
   CheckoutInput,
+  GuestCartLine,
+  GuestCheckoutInput,
   InventoryTransaction,
   Order,
   OrderStats,
@@ -50,6 +52,10 @@ export function removeCartItem(itemId: string): Promise<Cart> {
 
 export function clearCart(): Promise<Cart> {
   return apiRequest<Cart>("/cart", { method: "DELETE" });
+}
+
+export function previewGuestCart(items: GuestCartLine[]): Promise<Cart> {
+  return apiRequest<Cart>("/checkout/cart-preview", { method: "POST", body: { items } });
 }
 
 // ------------------------------------------------------------------ wishlist
@@ -96,6 +102,10 @@ export function getCheckoutConfig(): Promise<CheckoutConfig> {
 
 export function placeOrder(payload: CheckoutInput): Promise<Order> {
   return apiRequest<Order>("/checkout", { method: "POST", body: payload });
+}
+
+export function placeGuestOrder(payload: GuestCheckoutInput): Promise<Order> {
+  return apiRequest<Order>("/checkout/guest", { method: "POST", body: payload });
 }
 
 // -------------------------------------------------------------------- orders

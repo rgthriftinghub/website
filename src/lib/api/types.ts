@@ -347,6 +347,32 @@ export interface CheckoutInput {
   coupon_code?: string;
 }
 
+export interface GuestCartLine {
+  product_variant_id: string;
+  quantity: number;
+}
+
+export interface GuestDeliveryInput {
+  full_name: string;
+  phone: string;
+  address_line_1: string;
+  address_line_2?: string;
+  city: string;
+  province?: string;
+  postal_code?: string;
+  country?: string;
+}
+
+export interface GuestCheckoutInput {
+  items: GuestCartLine[];
+  delivery: GuestDeliveryInput;
+  payment_method: "COD";
+  delivery_method?: DeliveryMethod;
+  contact_email?: string;
+  customer_note?: string;
+  coupon_code?: string;
+}
+
 export interface OrderItem {
   id: string;
   product_id: string | null;
@@ -393,7 +419,7 @@ export interface OrderSummary {
 }
 
 export interface Order extends OrderSummary {
-  contact_email: string;
+  contact_email: string | null;
   contact_phone: string;
   shipping_address_snapshot: AddressSnapshot;
   billing_address_snapshot: AddressSnapshot | null;
@@ -415,10 +441,11 @@ export interface Order extends OrderSummary {
 }
 
 export interface OrderCustomer {
-  id: string;
-  email: string;
+  id: string | null;
+  email: string | null;
   first_name: string;
   last_name: string;
+  is_guest: boolean;
 }
 
 export interface AdminOrderSummary extends OrderSummary {

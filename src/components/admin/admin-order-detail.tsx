@@ -380,9 +380,9 @@ export function AdminOrderDetail({ orderId }: { orderId: string }) {
               Customer
             </h2>
             <p className="mt-3 text-sm font-medium text-ink">
-              {order.customer.first_name} {order.customer.last_name}
+              {order.customer.is_guest ? "Guest · " : ""}{order.customer.first_name} {order.customer.last_name}
             </p>
-            <p className="text-sm text-ink-muted">{order.customer.email}</p>
+            <p className="text-sm text-ink-muted">{order.customer.email ?? "No email provided"}</p>
             <p className="mt-1 text-sm text-ink-muted">{order.contact_phone}</p>
           </section>
 

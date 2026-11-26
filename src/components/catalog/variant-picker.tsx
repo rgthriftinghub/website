@@ -2,7 +2,6 @@
 
 import { Check, Loader2, ShoppingBag } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { WishlistButton } from "@/components/catalog/wishlist-button";
@@ -31,8 +30,7 @@ export function VariantPicker({
   productId: string;
   productName: string;
 }) {
-  const router = useRouter();
-  const { isAuthenticated, addToCart } = useStore();
+  const { addToCart } = useStore();
 
   const active = useMemo(() => variants.filter((variant) => variant.is_active), [variants]);
   const waistVariants = active.filter((variant) => variant.waist !== null);
@@ -58,11 +56,6 @@ export function VariantPicker({
 
   async function handleAdd() {
     if (!buyable) return;
-    if (!isAuthenticated) {
-      router.push(`/account?next=${encodeURIComponent(`/shop`)}`);
-      return;
-    }
-
     setStatus("saving");
     setError(null);
     try {

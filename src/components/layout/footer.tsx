@@ -4,6 +4,7 @@ import { AtSign, Mail, MapPin, Phone } from "lucide-react";
 
 import { Logo } from "@/components/brand/logo";
 import type { Category } from "@/lib/api/types";
+import { THRIFT_DISCLAIMER } from "@/lib/disclaimer";
 
 const HELP_LINKS = [
   // Only the tracker is a real destination so far; the rest point at the shop
@@ -112,9 +113,12 @@ export function Footer({ categories }: { categories: Category[] }) {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-paper/12 pt-6 text-xs text-paper/45 sm:flex-row sm:items-center sm:justify-between">
-          <p>© {new Date().getFullYear()} RG Thrifting Hub. All rights reserved.</p>
-          <p>Online ordering and payments are coming soon.</p>
+        <div className="mt-12 border-t border-paper/12 pt-6">
+          <p className="max-w-4xl text-xs leading-relaxed text-paper/65">{THRIFT_DISCLAIMER}</p>
+          <div className="mt-4 flex flex-col gap-3 text-xs text-paper/45 sm:flex-row sm:items-center sm:justify-between">
+            <p>© {new Date().getFullYear()} RG Thrifting Hub. All rights reserved.</p>
+            <p>Online ordering and payments are coming soon.</p>
+          </div>
         </div>
       </div>
     </footer>

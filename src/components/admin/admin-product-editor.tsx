@@ -55,6 +55,7 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
   const [categories, setCategories] = useState<CategoryDetail[]>([]);
   const [product, setProduct] = useState<ProductAdmin | null>(null);
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [photo, setPhoto] = useState<string>(PHOTOS[0][0]);
   type SizeRow = { size: string; quantity: string; existing?: ProductAdmin["variants"][number] };
@@ -71,7 +72,7 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
   useEffect(() => {
     listAdminCategories().then(setCategories).catch(() => setError("Could not load product categories."));
     if (productId) getAdminProduct(productId).then((item) => {
-      setProduct(item); setName(item.name); setPrice(item.regular_price);
+      setProduct(item); setName(item.name); setPrice(item.regular_price); setDescription(item.description?.slice(0, 300) ?? "");
       const primary = item.images.find((image) => image.is_primary) ?? item.images[0];
       if (primary) setPhoto(primary.image_url.split("/").pop() ?? PHOTOS[0][0]);
       setSizeRows(item.variants.length
@@ -102,7 +103,7 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
       if (!product && !sizeRows.some((row) => row.size.trim())) throw new Error("Add at least one size before saving.");
       if (product) {
         await updateAdminProduct(product.id, {
-          name, regular_price: price,
+          name, description: description.trim() || null, regular_price: price,
           condition,
           item_code: itemCode,
           single_piece: singlePiece,
@@ -124,7 +125,7 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
         const code = `${Date.now()}-${Math.floor(Math.random() * 10000)}`;
         const created = await createAdminProduct({
           name, slug: slugify(name), sku: `RG-W-${code}`,
-          short_description: name, description: name,
+          short_description: name, description: description.trim() || null,
           category_id: category.id, subcategory_id: subcategory?.id ?? null, brand_id: null,
           regular_price: price, sale_price: null, condition, single_piece: singlePiece, gender: "WOMEN",
           product_type: productType, color: null, fabric: null, is_featured: false, is_new_arrival: true,
@@ -178,6 +179,7 @@ export function AdminProductEditor({ productId }: { productId?: string }) {
     </section> : null}
     <form onSubmit={save} className="space-y-5 border border-line bg-paper p-5">
       <label className="block text-sm">Product name<input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block h-11 w-full border border-line px-3" /></label>
+      <label className="block text-sm">Description<textarea maxLength={300} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className="mt-1 block w-full border border-line px-3 py-2" aria-describedby="product-description-count" /><span id="product-description-count" className="mt-1 block text-right text-xs text-ink-muted">{description.length}/300</span></label>
       <label className="block text-sm">Price (PKR)<input required type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} className="mt-1 block h-11 w-full border border-line px-3" /></label>
       <label className="block text-sm">Condition grade<select value={condition} onChange={(e) => setCondition(e.target.value as ProductCondition)} className="mt-1 block h-11 w-full border border-line bg-white px-3"><option value="PREMIUM_PLUS">Premium Plus</option><option value="PREMIUM">Premium</option><option value="EXCELLENT">Excellent</option><option value="GOOD">Good</option></select></label>
       {product ? <label className="block text-sm">Item code<input required value={itemCode} onChange={(e) => setItemCode(e.target.value)} pattern="[A-Za-z0-9-]+" maxLength={32} className="mt-1 block h-11 w-full border border-line px-3 font-mono" /></label> : <p className="text-xs text-ink-muted">A unique item code will be generated automatically.</p>}
